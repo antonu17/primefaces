@@ -17,7 +17,6 @@ package org.primefaces.component.export;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -45,8 +44,12 @@ public class ExcelExporter extends Exporter {
     @Override
     public void export(FacesContext context, DataTable table, String filename, boolean pageOnly, boolean selectionOnly, String encodingType, MethodExpression preProcessor, MethodExpression postProcessor) throws IOException {
         Workbook wb = createWorkBook();
-        String id = table.getId();
-    	Sheet sheet = wb.createSheet(id);
+        String sheetName = getSheetName(context, table);
+        if(sheetName == null) {
+            sheetName = table.getId();
+        }
+        
+    	Sheet sheet = wb.createSheet(sheetName);
         
     	if(preProcessor != null) {
     		preProcessor.invoke(context.getELContext(), new Object[]{wb});
@@ -60,16 +63,41 @@ public class ExcelExporter extends Exporter {
     	
     	writeExcelToResponse(context.getExternalContext(), wb, filename);
     }
+    
+    @Override
+    public void export(FacesContext context, String filename, List<DataTable> tables, boolean pageOnly, boolean selectionOnly, String encodingType, MethodExpression preProcessor, MethodExpression postProcessor) throws IOException {
+        Workbook wb = createWorkBook();
+
+    	if(preProcessor != null) {
+    		preProcessor.invoke(context.getELContext(), new Object[]{wb});
+    	}
+
+        for(DataTable table : tables) {
+            String sheetName = getSheetName(context, table);
+            if(sheetName == null) {
+                sheetName = table.getId();
+            }
+            
+            Sheet sheet = wb.createSheet(sheetName);
+            exportTable(context, table, sheet, pageOnly, selectionOnly);
+        }
+            	
+    	if(postProcessor != null) {
+    		postProcessor.invoke(context.getELContext(), new Object[]{wb});
+    	}
+    	
+    	writeExcelToResponse(context.getExternalContext(), wb, filename);
+    }
 
     @Override
-	public void export(FacesContext context, String expression, String filename, boolean pageOnly, boolean selectionOnly, String encodingType, MethodExpression preProcessor, MethodExpression postProcessor) throws IOException {    	
+	public void export(FacesContext context, List<String> clientIds, String filename, boolean pageOnly, boolean selectionOnly, String encodingType, MethodExpression preProcessor, MethodExpression postProcessor) throws IOException {    	
     	Workbook wb = createWorkBook();
         
         if(preProcessor != null) {
     		preProcessor.invoke(context.getELContext(), new Object[]{wb});
     	}
         
-        VisitContext visitContext = VisitContext.createVisitContext(context, Arrays.asList(expression.split(",")), null);
+        VisitContext visitContext = VisitContext.createVisitContext(context, clientIds, null);
         VisitCallback visitCallback = new ExcelExportVisitCallback(this, wb, pageOnly, selectionOnly);
         context.getViewRoot().visitTree(visitContext, visitCallback);
         

@@ -15,39 +15,45 @@
  */
 package org.primefaces.component.export;
 
+import com.lowagie.text.Document;
+import com.lowagie.text.DocumentException;
+import com.lowagie.text.Paragraph;
 import javax.faces.component.UIComponent;
 import javax.faces.component.visit.VisitCallback;
 import javax.faces.component.visit.VisitContext;
 import javax.faces.component.visit.VisitResult;
-import javax.faces.context.FacesContext;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
+import javax.faces.view.facelets.FaceletException;
 import org.primefaces.component.datatable.DataTable;
 
-public class ExcelExportVisitCallback implements VisitCallback {
-	
-    private ExcelExporter exporter;
+public class PDFExportVisitCallback implements VisitCallback {
+    
+    private PDFExporter exporter;
+    private Document document;
     private boolean pageOnly;
     private boolean selectionOnly;
-    private Workbook workbook;
+    private String encoding;
 
-    public ExcelExportVisitCallback(ExcelExporter exporter, Workbook workbook, boolean pageOnly, boolean selectionOnly) {
+    public PDFExportVisitCallback(PDFExporter exporter, Document document, boolean pageOnly, boolean selectionOnly, String encoding) {
         this.exporter = exporter;
+        this.document = document;
         this.pageOnly = pageOnly;
         this.selectionOnly = selectionOnly;
-        this.workbook = workbook;
+        this.encoding = encoding;
     }
 
     public VisitResult visit(VisitContext context, UIComponent target) {
         DataTable dt = (DataTable) target;
-        FacesContext facesContext = context.getFacesContext();
-        String sheetName = exporter.getSheetName(facesContext, dt);
-        if(sheetName == null) {
-            sheetName = dt.getClientId().replaceAll(":", "_");
+        try {
+            document.add(exporter.exportPDFTable(context.getFacesContext(), dt, pageOnly, selectionOnly, encoding));
+            
+            Paragraph preface = new Paragraph();
+            exporter.addEmptyLine(preface, 3);
+            document.add(preface);
+            
+        } catch (DocumentException e) {
+            throw new FaceletException(e.getMessage());
         }
         
-        Sheet sheet = workbook.createSheet(sheetName);
-        exporter.exportTable(facesContext, dt, sheet, pageOnly, selectionOnly);
         return VisitResult.ACCEPT;
     }
     
